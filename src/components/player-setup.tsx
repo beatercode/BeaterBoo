@@ -1,39 +1,59 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardBody, Button, Input } from '@heroui/react';
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';
 import { Player } from '../types/game';
 
 interface PlayerSetupProps {
-  onComplete: (team1Players: Player[], team2Players: Player[]) => void;
+  onComplete: (players: Player[]) => void;
   onBack: () => void;
 }
 
-export const PlayerSetup: React.FC<PlayerSetupProps> = ({ onComplete, onBack }) => {
-  const [team1Players, setTeam1Players] = React.useState<Player[]>([{ id: '1', name: '', team: 'team1' }]);
-  const [team2Players, setTeam2Players] = React.useState<Player[]>([{ id: '1', name: '', team: 'team2' }]);
+const STORAGE_KEY = 'taboo-player-setup';
 
-  const addPlayer = (team: 'team1' | 'team2') => {
-    const newPlayer = { id: Date.now().toString(), name: '', team };
-    if (team === 'team1') {
-      setTeam1Players([...team1Players, newPlayer]);
-    } else {
-      setTeam2Players([...team2Players, newPlayer]);
+export const PlayerSetup: React.FC<PlayerSetupProps> = ({ onComplete, onBack }) => {
+  const [players, setPlayers] = React.useState<Player[]>([
+    { id: '1', name: '' }
+  ]);
+
+  // Carica i giocatori dal localStorage all'avvio
+  useEffect(() => {
+    const savedPlayers = localStorage.getItem(STORAGE_KEY);
+    if (savedPlayers) {
+      try {
+        const parsedPlayers = JSON.parse(savedPlayers);
+        if (Array.isArray(parsedPlayers) && parsedPlayers.length > 0) {
+          setPlayers(parsedPlayers);
+        }
+      } catch (e) {
+        console.error('Errore nel parsing dei giocatori salvati:', e);
+      }
+    }
+  }, []);
+
+  const addPlayer = () => {
+    const newPlayer = { id: Date.now().toString(), name: '' };
+    setPlayers([...players, newPlayer]);
+  };
+
+  const removePlayer = (id: string) => {
+    if (players.length > 1) {
+      setPlayers(players.filter(p => p.id !== id));
     }
   };
 
-  const updatePlayerName = (team: 'team1' | 'team2', id: string, name: string) => {
-    if (team === 'team1') {
-      setTeam1Players(team1Players.map(p => p.id === id ? { ...p, name } : p));
-    } else {
-      setTeam2Players(team2Players.map(p => p.id === id ? { ...p, name } : p));
-    }
+  const updatePlayerName = (id: string, name: string) => {
+    setPlayers(players.map(p => p.id === id ? { ...p, name } : p));
   };
 
   const handleSubmit = () => {
-    const validTeam1 = team1Players.filter(p => p.name.trim());
-    const validTeam2 = team2Players.filter(p => p.name.trim());
-    onComplete(validTeam1, validTeam2);
+    const validPlayers = players.filter(p => p.name.trim());
+    
+    // Salva i giocatori nel localStorage per uso futuro
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(validPlayers));
+    
+    // Passa i giocatori validi al componente genitore
+    onComplete(validPlayers);
   };
 
   return (
@@ -54,44 +74,40 @@ export const PlayerSetup: React.FC<PlayerSetupProps> = ({ onComplete, onBack }) 
       <Card>
         <CardBody className="space-y-6">
           <div>
-            <h2 className="text-xl font-bold mb-4">Squadra 1</h2>
-            {team1Players.map((player) => (
-              <Input
-                key={player.id}
-                label={`Giocatore ${team1Players.indexOf(player) + 1}`}
-                placeholder="Nome giocatore"
-                value={player.name}
-                onValueChange={(value) => updatePlayerName('team1', player.id, value)}
-                className="mb-2"
-              />
+            <h2 className="text-xl font-bold mb-4">Giocatori</h2>
+            <p className="text-sm text-default-500 mb-4">
+              Ogni giocatore gioca individualmente, a turno.
+            </p>
+            
+            {players.map((player, index) => (
+              <div key={player.id} className="flex items-center gap-2 mb-2">
+                <Input
+                  label={`Giocatore ${index + 1}`}
+                  placeholder="Nome giocatore"
+                  value={player.name}
+                  onValueChange={(value) => updatePlayerName(player.id, value)}
+                  className="flex-grow"
+                />
+                <Button
+                  size="sm"
+                  isIconOnly
+                  color="danger"
+                  variant="light"
+                  onPress={() => removePlayer(player.id)}
+                  disabled={players.length <= 1}
+                  className="mt-5"
+                >
+                  <Icon icon="lucide:x" />
+                </Button>
+              </div>
             ))}
+            
             <Button
               size="sm"
               variant="flat"
-              onPress={() => addPlayer('team1')}
+              onPress={addPlayer}
               startContent={<Icon icon="lucide:plus" />}
-            >
-              Aggiungi Giocatore
-            </Button>
-          </div>
-
-          <div>
-            <h2 className="text-xl font-bold mb-4">Squadra 2</h2>
-            {team2Players.map((player) => (
-              <Input
-                key={player.id}
-                label={`Giocatore ${team2Players.indexOf(player) + 1}`}
-                placeholder="Nome giocatore"
-                value={player.name}
-                onValueChange={(value) => updatePlayerName('team2', player.id, value)}
-                className="mb-2"
-              />
-            ))}
-            <Button
-              size="sm"
-              variant="flat"
-              onPress={() => addPlayer('team2')}
-              startContent={<Icon icon="lucide:plus" />}
+              className="mt-2"
             >
               Aggiungi Giocatore
             </Button>
@@ -103,6 +119,7 @@ export const PlayerSetup: React.FC<PlayerSetupProps> = ({ onComplete, onBack }) 
             className="w-full"
             onPress={handleSubmit}
             startContent={<Icon icon="lucide:check" />}
+            isDisabled={players.filter(p => p.name.trim()).length < 1}
           >
             Inizia Partita
           </Button>

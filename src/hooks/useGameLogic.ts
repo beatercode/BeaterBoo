@@ -10,11 +10,9 @@ const initialState: GameState = {
   score: 0,
   timeLeft: ROUND_TIME,
   isPlaying: false,
-  currentTeam: 'team1',
-  team1Score: 0,
-  team2Score: 0,
-  team1Players: [],
-  team2Players: [],
+  currentPlayerIndex: 0,
+  players: [],
+  scores: {},
   roundNumber: 1,
   totalRounds: TOTAL_ROUNDS,
   selectedWordSet: undefined
@@ -56,25 +54,30 @@ export const useGameLogic = () => {
     if (timer) {
       clearInterval(timer);
     }
-    setGameState(prev => ({
-      ...prev,
-      isPlaying: false,
-      currentTeam: prev.currentTeam === 'team1' ? 'team2' : 'team1',
-      timeLeft: ROUND_TIME,
-      roundNumber: prev.roundNumber + 1
-    }));
+    setGameState(prev => {
+      const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length;
+      return {
+        ...prev,
+        isPlaying: false,
+        currentPlayerIndex: nextPlayerIndex,
+        timeLeft: ROUND_TIME,
+        roundNumber: prev.roundNumber + 1
+      };
+    });
   }, [timer]);
 
   const correctGuess = React.useCallback(() => {
     setGameState(prev => {
-      const newScore = prev.currentTeam === 'team1' ? 
-        { team1Score: prev.team1Score + 1 } : 
-        { team2Score: prev.team2Score + 1 };
-
+      const currentPlayerId = prev.players[prev.currentPlayerIndex]?.id;
+      const currentScore = prev.scores[currentPlayerId] || 0;
+      
       return {
         ...prev,
         currentCardIndex: (prev.currentCardIndex + 1) % prev.cards.length,
-        ...newScore
+        scores: {
+          ...prev.scores,
+          [currentPlayerId]: currentScore + 1
+        }
       };
     });
   }, []);
@@ -94,11 +97,18 @@ export const useGameLogic = () => {
     }));
   }, []);
 
-  const setPlayers = React.useCallback((team1Players: Player[], team2Players: Player[]) => {
+  const setPlayers = React.useCallback((players: Player[]) => {
+    // Inizializza i punteggi per tutti i giocatori
+    const scores: Record<string, number> = {};
+    players.forEach(player => {
+      scores[player.id] = 0;
+    });
+
     setGameState(prev => ({
       ...prev,
-      team1Players,
-      team2Players
+      players,
+      scores,
+      currentPlayerIndex: 0
     }));
   }, []);
 
@@ -119,6 +129,19 @@ export const useGameLogic = () => {
     }));
   }, []);
 
+  // Ottieni il giocatore corrente
+  const getCurrentPlayer = React.useCallback(() => {
+    return gameState.players[gameState.currentPlayerIndex];
+  }, [gameState.players, gameState.currentPlayerIndex]);
+
+  // Ottieni tutti i punteggi ordinati
+  const getOrderedScores = React.useCallback(() => {
+    return gameState.players.map(player => ({
+      player,
+      score: gameState.scores[player.id] || 0
+    })).sort((a, b) => b.score - a.score);
+  }, [gameState.players, gameState.scores]);
+
   React.useEffect(() => {
     return () => {
       if (timer) {
@@ -136,6 +159,8 @@ export const useGameLogic = () => {
     setCards,
     setPlayers,
     setWordSet,
-    startNewRound
+    startNewRound,
+    getCurrentPlayer,
+    getOrderedScores
   };
 };

@@ -66,8 +66,8 @@ export default function App() {
     }
   };
 
-  const handlePlayersSetup = (team1Players: Player[], team2Players: Player[]) => {
-    setPlayers(team1Players, team2Players);
+  const handlePlayersSetup = (players: Player[]) => {
+    setPlayers(players);
     setGamePhase('game');
   };
 
@@ -214,10 +214,17 @@ export default function App() {
   };
 
   const handleRoundEnd = () => {
-    if (gameState.roundNumber >= gameState.totalRounds) {
-      setGamePhase('gameEnd');
+    // Se tutti i giocatori hanno giocato il loro turno in questo round
+    if ((gameState.roundNumber) % gameState.players.length === 0) {
+      // Se abbiamo completato tutti i round, termina il gioco
+      if (gameState.roundNumber >= gameState.totalRounds * gameState.players.length) {
+        setGamePhase('gameEnd');
+      } else {
+        setGamePhase('roundEnd'); 
+      }
     } else {
-      setGamePhase('roundEnd');
+      // Altrimenti passiamo semplicemente al giocatore successivo
+      startNewRound();
     }
   };
 
@@ -335,16 +342,16 @@ export default function App() {
         {gamePhase === 'game' && (
           <div className="max-w-md mx-auto space-y-4">
             <ScoreDisplay
-              team1Score={gameState.team1Score}
-              team2Score={gameState.team2Score}
-              currentTeam={gameState.currentTeam}
+              players={gameState.players}
+              scores={gameState.scores}
+              currentPlayerIndex={gameState.currentPlayerIndex}
               timeLeft={gameState.timeLeft}
             />
 
             {!gameState.isPlaying ? (
               <div className="text-center">
                 <h2 className="text-xl mb-4 font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  {`Turno Squadra ${gameState.currentTeam === 'team1' ? '1' : '2'}`}
+                  {`Turno di ${gameState.players[gameState.currentPlayerIndex]?.name || 'Giocatore'}`}
                 </h2>
                 <Button
                   color="primary"
@@ -376,8 +383,8 @@ export default function App() {
 
         {(gamePhase === 'roundEnd' || gamePhase === 'gameEnd') && (
           <RoundEnd
-            team1Score={gameState.team1Score}
-            team2Score={gameState.team2Score}
+            players={gameState.players}
+            scores={gameState.scores}
             roundNumber={gameState.roundNumber}
             totalRounds={gameState.totalRounds}
             onNextRound={handleNextRound}

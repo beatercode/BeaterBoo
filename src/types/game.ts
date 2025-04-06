@@ -17,7 +17,6 @@ export interface WordSet {
 export interface Player {
   id: string;
   name: string;
-  team: 'team1' | 'team2';
 }
 
 export interface GameState {
@@ -26,11 +25,9 @@ export interface GameState {
   score: number;
   timeLeft: number;
   isPlaying: boolean;
-  currentTeam: 'team1' | 'team2';
-  team1Score: number;
-  team2Score: number;
-  team1Players: Player[];
-  team2Players: Player[];
+  currentPlayerIndex: number;
+  players: Player[];
+  scores: Record<string, number>; // Mappa degli ID giocatore ai punteggi
   roundNumber: number;
   totalRounds: number;
   selectedWordSet?: WordSet;

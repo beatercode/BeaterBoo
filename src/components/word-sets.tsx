@@ -3,6 +3,7 @@ import { Card, CardBody, Chip, Button, Modal, ModalContent, ModalHeader, ModalBo
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';
 import { WordSet } from '../types/game';
+import { canDeleteWordSet } from '../services/database';
 
 interface WordSetsProps {
   wordSets: WordSet[];
@@ -32,6 +33,36 @@ export const WordSets: React.FC<WordSetsProps> = ({
     onClose: closeDeleteModal 
   } = useDisclosure();
   const [setToDelete, setSetToDelete] = React.useState<WordSet | null>(null);
+
+  // Aggiungo nelle prime righe del componente
+  const [deletableSetIds, setDeletableSetIds] = React.useState<Set<string>>(new Set());
+
+  // Verifico quali set sono eliminabili all'avvio
+  React.useEffect(() => {
+    // Funzione per controllare i permessi di eliminazione
+    const checkDeletionPermissions = async () => {
+      const deletableIds = new Set<string>();
+      
+      // Verifica ogni set custom
+      for (const set of wordSets) {
+        if (set.isCustom) {
+          const canDelete = await canDeleteWordSet(set.id);
+          if (canDelete) {
+            deletableIds.add(set.id);
+          }
+        }
+      }
+      
+      setDeletableSetIds(deletableIds);
+    };
+    
+    checkDeletionPermissions();
+  }, [wordSets]);
+
+  // Funzione per verificare se l'utente può eliminare un determinato set
+  const canUserDeleteSet = (wordSet: WordSet) => {
+    return deletableSetIds.has(wordSet.id);
+  };
 
   // Incrementa progressivamente la barra di progresso durante la generazione
   React.useEffect(() => {
@@ -173,7 +204,7 @@ export const WordSets: React.FC<WordSetsProps> = ({
                         </Button>
                       )}
                       
-                      {onDeleteWordSet && (
+                      {onDeleteWordSet && canUserDeleteSet(wordSet) && (
                         <Button 
                           size="sm" 
                           isIconOnly 
