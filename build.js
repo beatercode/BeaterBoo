@@ -11,9 +11,9 @@ if (!fs.existsSync('dist')) {
 try {
   console.log('Starting build process...');
   
-  // Run Vite build without TypeScript check
-  console.log('Running Vite build...');
-  execSync('npx vite build', { stdio: 'inherit' });
+  // Run Vite build with special Vercel config
+  console.log('Running Vite build with special Vercel config...');
+  execSync('npx vite build --config vite.vercel.config.js', { stdio: 'inherit' });
   
   console.log('Build completed successfully!');
 } catch (error) {
