@@ -11,6 +11,7 @@ export interface WordSet {
   cards: TabooCard[];
   isCustom: boolean;
   createdAt: string;
+  creatorDeviceId?: string; // L'ID del dispositivo che ha creato il set
 }
 
 export interface Player {

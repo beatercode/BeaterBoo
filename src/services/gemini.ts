@@ -1,8 +1,9 @@
 import { TabooCard } from '../types/game';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize the Generative AI API with your API key
-const API_KEY = 'AIzaSyD0NIUoBAXMBPuXETU4WHWVhFNxlr9g4gY';
+// Initialize the Generative AI API with your API key from environment variables
+const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || 'AIzaSyD0NIUoBAXMBPuXETU4WHWVhFNxlr9g4gY';
+const MODEL_NAME = process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-1.5-pro';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 export async function generateTabooWords(
@@ -26,8 +27,8 @@ export async function generateTabooWords(
     Make sure each mainWord is a single word, not a phrase.
     All words must be in Italian.`;
 
-    // Access the generative model - using the correct model name for the current API version
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    // Access the generative model - using the model name from environment variables
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
     // Generate content
     const result = await model.generateContent(prompt);

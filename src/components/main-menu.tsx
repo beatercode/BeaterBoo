@@ -29,7 +29,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
         className="text-center"
       >
         <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2">
-          Taboo
+          BeaterBoo
         </h1>
         {selectedWordSet && (
           <p className="text-default-500">

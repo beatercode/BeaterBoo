@@ -11,20 +11,24 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^4.6.1",
     "@google/generative-ai": "^0.24.0",
     "@heroui/react": "2.7.5",
     "@heroui/use-theme": "2.1.6",
     "@iconify/react": "latest",
     "framer-motion": "^11.18.2",
     "openai": "^4.28.0",
+    "pg": "^8.14.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@babel/preset-env": "^7.24.0",
     "@babel/preset-react": "^7.23.3",
     "@babel/preset-typescript": "^7.23.3",
+    "@types/pg": "^8.11.11",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",

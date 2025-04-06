@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Button } from '@heroui/react';
 import { Icon } from '@iconify/react';
@@ -13,9 +13,8 @@ import { RoundEnd } from './components/round-end';
 import { BottomNav } from './components/bottom-nav';
 import { useGameLogic } from './hooks/useGameLogic';
 import { GamePhase, Player, TabooCard, WordSet } from './types/game';
-
-// Log that App component is being rendered
-console.log('App component is rendering');
+import { generateTabooWords } from './services/gemini';
+import { loadWordSets, saveWordSet, deleteWordSet, canDeleteWordSet } from './services/database';
 
 const mockWordSets: WordSet[] = [
   {
@@ -31,15 +30,13 @@ const mockWordSets: WordSet[] = [
 ];
 
 export default function App() {
-  console.log('Inside App function component');
-  
-  const [wordSets, setWordSets] = React.useState<WordSet[]>(mockWordSets);
+  const [wordSets, setWordSets] = React.useState<WordSet[]>([]);
   const [gamePhase, setGamePhase] = React.useState<GamePhase>('menu');
   const [isAddingCardsToSet, setIsAddingCardsToSet] = React.useState(false);
   const [targetWordSetId, setTargetWordSetId] = React.useState<string | null>(null);
-  
-  console.log('Current game phase:', gamePhase);
-  
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
   const {
     gameState,
     startGame,
@@ -51,8 +48,6 @@ export default function App() {
     setWordSet
   } = useGameLogic();
   
-  console.log('Game state loaded:', gameState);
-
   const handleNavigate = React.useCallback((phase: GamePhase) => {
     if (gameState.isPlaying) {
       if (window.confirm('Vuoi davvero abbandonare la partita in corso?')) {
@@ -80,38 +75,123 @@ export default function App() {
     setGamePhase('wordSetGeneration');
   };
 
-  const handleWordSetGenerated = (cards: TabooCard[]) => {
-    const newWordSet: WordSet = {
-      id: Date.now().toString(),
-      name: 'Set Personalizzato',
-      description: 'Set di parole generato con AI',
-      cards,
-      isCustom: true,
-      createdAt: new Date().toISOString()
+  const handleWordSetGenerated = async (cards: TabooCard[], setName: string) => {
+    try {
+      const newSet: WordSet = {
+        id: Date.now().toString(), // ID temporaneo
+        name: setName,
+        description: `Set personalizzato creato il ${new Date().toLocaleDateString()}`,
+        cards,
+        isCustom: true,
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Salva il set nel database
+      const savedSet = await saveWordSet(newSet);
+      
+      // Aggiorna lo stato locale
+      setWordSets(prev => [savedSet, ...prev]);
+      
+      // Torna al menu principale
+      setGamePhase('menu');
+    } catch (error) {
+      console.error('Errore nel salvataggio del set:', error);
+      setErrorMessage('Errore nel salvataggio del set di parole');
+      
+      // Fallback: Aggiungi comunque il set localmente
+      const fallbackSet: WordSet = {
+        id: Date.now().toString(),
+        name: setName,
+        description: `Set personalizzato creato il ${new Date().toLocaleDateString()}`,
+        cards,
+        isCustom: true,
+        createdAt: new Date().toISOString(),
+      };
+      
+      setWordSets(prev => [fallbackSet, ...prev]);
+      setGamePhase('menu');
+    }
+  };
+
+  const handleDeleteWordSet = async (setId: string) => {
+    try {
+      // Verifica se l'utente può eliminare questo set
+      if (await canDeleteWordSet(setId)) {
+        // Elimina dal database
+        const success = await deleteWordSet(setId);
+        
+        if (success) {
+          // Rimuovi dallo stato locale
+          setWordSets(prev => prev.filter(set => set.id !== setId));
+        } else {
+          setErrorMessage('Non è stato possibile eliminare il set');
+        }
+      } else {
+        setErrorMessage('Non hai i permessi per eliminare questo set');
+      }
+    } catch (error) {
+      console.error('Errore nell\'eliminazione del set:', error);
+      setErrorMessage('Errore durante l\'eliminazione del set');
+    }
+  };
+
+  const handleAddCardsToSet = async (wordSetId: string, onGenerationComplete: () => void) => {
+    const targetSet = wordSets.find(set => set.id === wordSetId);
+    if (!targetSet) return;
+    
+    setTargetWordSetId(wordSetId);
+    setIsAddingCardsToSet(true);
+    
+    // Genera direttamente le parole invece di navigare alla schermata di generazione
+    const generateNewCards = async () => {
+      const existingWords = targetSet.cards.map(card => card.mainWord);
+      
+      try {
+        // Genera nuove carte
+        const newCards = await generateTabooWords(
+          targetSet.name, // Usa il nome del set come topic
+          "", // Categoria vuota
+          30, // Numero fisso di carte da aggiungere
+          existingWords
+        );
+        
+        // Crea un set aggiornato con le nuove carte
+        const updatedSet: WordSet = {
+          ...targetSet,
+          cards: [...targetSet.cards, ...newCards]
+        };
+        
+        // Salva il set aggiornato nel database
+        const savedSet = await saveWordSet(updatedSet);
+        
+        // Aggiorna lo stato locale
+        setWordSets(prev => prev.map(set => 
+          set.id === wordSetId ? savedSet : set
+        ));
+        
+        setTargetWordSetId(null);
+        setIsAddingCardsToSet(false);
+        
+        // Chiama la callback per notificare il completamento
+        onGenerationComplete();
+      } catch (error) {
+        console.error('Errore nella generazione delle parole:', error);
+        setErrorMessage('Errore nella generazione delle parole');
+        
+        setTargetWordSetId(null);
+        setIsAddingCardsToSet(false);
+        
+        // Chiama comunque la callback, anche in caso di errore
+        onGenerationComplete();
+      }
     };
-    setWordSets(prev => [...prev, newWordSet]);
-    setWordSet(newWordSet);
-    setGamePhase('menu');
+    
+    generateNewCards();
   };
 
   const handleSelectWordSet = (wordSet: WordSet) => {
     setWordSet(wordSet);
     setGamePhase('menu');
-  };
-
-  const handleAddCardsToSet = (wordSetId: string, count: number) => {
-    // Trova il set a cui aggiungere le carte
-    const targetSet = wordSets.find(set => set.id === wordSetId);
-    if (!targetSet) return;
-    
-    // Salva lo stato per la generazione
-    setTargetWordSetId(wordSetId);
-    setIsAddingCardsToSet(true);
-    
-    // Vai alla schermata di generazione, passando il conteggio desiderato
-    setGamePhase('wordSetGeneration');
-    
-    // Il conteggio carte verrà utilizzato dal componente WordSetGenerator tramite initialCardCount
   };
 
   const handleCardsAddedToSet = (cards: TabooCard[]) => {
@@ -127,11 +207,9 @@ export default function App() {
       return set;
     }));
     
-    // Resetta lo stato
     setTargetWordSetId(null);
     setIsAddingCardsToSet(false);
     
-    // Torna alla lista dei set
     setGamePhase('wordSets');
   };
 
@@ -152,7 +230,6 @@ export default function App() {
     setGamePhase('menu');
   };
 
-  // Estrai le parole esistenti per evitare duplicati
   const getExistingWords = React.useMemo(() => {
     if (isAddingCardsToSet && targetWordSetId) {
       const targetSet = wordSets.find(set => set.id === targetWordSetId);
@@ -161,18 +238,62 @@ export default function App() {
     return [];
   }, [isAddingCardsToSet, targetWordSetId, wordSets]);
 
-  console.log('About to render UI');
+  // Carica i set di parole dal database all'avvio dell'app
+  useEffect(() => {
+    const fetchWordSets = async () => {
+      try {
+        setIsLoading(true);
+        const sets = await loadWordSets();
+        if (sets.length > 0) {
+          setWordSets(sets);
+        } else {
+          // Mantieni i set mock se il database è vuoto
+          setWordSets(mockWordSets);
+        }
+      } catch (error) {
+        console.error('Errore nel caricamento dei set di parole:', error);
+        setErrorMessage('Errore nel caricamento dei set di parole');
+        // Fallback ai set mock in caso di errore
+        setWordSets(mockWordSets);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWordSets();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24 relative overflow-hidden">
-      {/* Sfondo migliorato con maggiore contrasto e effetti */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-radial from-primary-100/30 via-background to-background" />
-        <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-b from-primary-200/20 to-transparent" />
-        <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-primary-100/10 to-transparent" />
-        <div className="absolute -left-24 top-1/4 w-64 h-64 rounded-full bg-secondary-100/10 blur-3xl" />
-        <div className="absolute -right-24 top-2/3 w-80 h-80 rounded-full bg-primary-100/10 blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-50/10 to-secondary-50/10 backdrop-blur-3xl" />
       </div>
+      
+      {/* Visualizza il messaggio di errore se presente */}
+      {errorMessage && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-danger-100 text-danger-700 px-4 py-2 rounded-lg shadow-lg">
+          <div className="flex items-center gap-2">
+            <Icon icon="lucide:alert-triangle" />
+            <span>{errorMessage}</span>
+            <button 
+              onClick={() => setErrorMessage(null)} 
+              className="ml-2 text-danger-700 hover:text-danger-900"
+            >
+              <Icon icon="lucide:x" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Visualizza il loader durante il caricamento */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            <p className="text-primary font-medium">Caricamento in corso...</p>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {gamePhase === 'menu' && (
@@ -196,6 +317,7 @@ export default function App() {
             onSelectWordSet={handleSelectWordSet}
             onAddCardsToSet={handleAddCardsToSet}
             onBack={() => setGamePhase('menu')}
+            onDeleteWordSet={handleDeleteWordSet}
           />
         )}
 
@@ -204,6 +326,9 @@ export default function App() {
             onComplete={isAddingCardsToSet ? handleCardsAddedToSet : handleWordSetGenerated}
             onBack={() => isAddingCardsToSet ? setGamePhase('wordSets') : setGamePhase('menu')}
             existingWords={getExistingWords}
+            initialCardCount={isAddingCardsToSet && targetWordSetId 
+              ? wordSets.find(set => set.id === targetWordSetId)?.cards.length || 30  // Per i set esistenti
+              : 30} // Per i nuovi set
           />
         )}
 

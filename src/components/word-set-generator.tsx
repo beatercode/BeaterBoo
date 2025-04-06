@@ -6,7 +6,7 @@ import { TabooCard } from '../types/game';
 import { generateTabooWords } from '../services/gemini';
 
 interface WordSetGeneratorProps {
-  onComplete: (cards: TabooCard[]) => void;
+  onComplete: (cards: TabooCard[], setName: string) => void;
   onBack?: () => void;
   existingWords?: string[] | (() => string[]);
   initialCardCount?: number;
@@ -20,12 +20,29 @@ export const WordSetGenerator: React.FC<WordSetGeneratorProps> = ({
 }) => {
   const [topic, setTopic] = React.useState('');
   const [category, setCategory] = React.useState('');
+  const [setName, setSetName] = React.useState('');
   const [cardCount, setCardCount] = React.useState(initialCardCount);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const [generatedCards, setGeneratedCards] = React.useState<TabooCard[]>([]);
 
   const existingWordsArray = typeof existingWords === 'function' ? existingWords() : existingWords;
+
+  // Aggiorna il nome del set in base al topic e category quando cambiano
+  React.useEffect(() => {
+    if (topic || category) {
+      let newName = '';
+      if (topic) {
+        newName += topic.charAt(0).toUpperCase() + topic.slice(1);
+      }
+      if (category) {
+        if (newName) newName += ' - ';
+        newName += category.charAt(0).toUpperCase() + category.slice(1);
+      }
+      if (!newName) newName = 'Set Personalizzato';
+      setSetName(newName);
+    }
+  }, [topic, category]);
 
   const generateWords = async () => {
     if (!topic && !category) return;
@@ -43,7 +60,7 @@ export const WordSetGenerator: React.FC<WordSetGeneratorProps> = ({
         const remaining = cardCount - (i * batchSize);
         const currentBatchSize = Math.min(remaining, batchSize);
         
-        // Raccogli tutte le parole esistenti e quelle già generate
+        // Chiamata aggiornata alla funzione generateTabooWords con la nuova firma
         const wordsToAvoid = [
           ...existingWordsArray,
           ...allCards.map(card => card.mainWord)
@@ -63,7 +80,7 @@ export const WordSetGenerator: React.FC<WordSetGeneratorProps> = ({
         setGeneratedCards(allCards);
       }
       
-      onComplete(allCards);
+      onComplete(allCards, setName);
     } catch (error) {
       console.error('Errore nella generazione delle parole:', error);
       setIsGenerating(false);
@@ -104,6 +121,15 @@ export const WordSetGenerator: React.FC<WordSetGeneratorProps> = ({
           placeholder="Es. Facile, Medio, Difficile..."
           value={category}
           onChange={(e) => setCategory(e.target.value)}
+          className="w-full"
+          isDisabled={isGenerating}
+        />
+        
+        <Input
+          label="Nome del set"
+          placeholder="Nome personalizzato per il set"
+          value={setName}
+          onChange={(e) => setSetName(e.target.value)}
           className="w-full"
           isDisabled={isGenerating}
         />
