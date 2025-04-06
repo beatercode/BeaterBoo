@@ -1,8 +1,56 @@
-# React + Tailwind
+# BeaterBoo - Advanced Taboo Game
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules. One top of the standard Vite setup, [tailwindcss](https://tailwindcss.com/) is installed and ready to be used in React components.
+BeaterBoo è un'applicazione moderna per giocare a Taboo, il classico gioco di parole in cui devi far indovinare una parola senza usare alcune parole tabù.
 
-Additional references:
+## Tecnologie utilizzate
 
-- [Getting started with Vite](https://vitejs.dev/guide/)
-- [Tailwind documentation](https://tailwindcss.com/docs/installation)
+- React 18
+- Vite 6
+- TailwindCSS
+- HeroUI React Components
+- Framer Motion per le animazioni
+- Google Gemini API per generare parole tabù
+- Supporto offline tramite localStorage
+
+## Funzionalità principali
+
+- Creazione e gestione di set di parole personalizzati
+- Generazione automatica di parole tabù tramite AI
+- Interfaccia utente intuitiva e reattiva
+- Modalità offline con persistenza locale
+- Sistema di punteggio e turni per più squadre
+
+## Sviluppo
+
+### Prerequisiti
+
+- Node.js 16+ o Bun
+- Un API key per Google Gemini (opzionale)
+
+### Installazione
+
+```bash
+# Installa le dipendenze con bun
+bun install
+```
+
+### Comandi principali
+
+```bash
+# Avvia il server di sviluppo
+bun run dev
+
+# Compila per la produzione
+bun run build
+
+# Esegui il linting del codice
+bun run lint
+```
+
+## Note di ottimizzazione
+
+L'applicazione è stata ottimizzata per:
+- Utilizzare Vite come unico sistema di build
+- Supportare la modalità offline con fallback a localStorage
+- Ridurre la dimensione del bundle con esbuild
+- Gestire in modo intelligente l'importazione dinamica di moduli server-side (pg)

@@ -9,20 +9,22 @@ export default defineConfig({
     allowedHosts: true,
   },
   build: {
-    // Disable chunk splitting to avoid Rollup issues
+    // Utilizziamo esbuild per la minificazione per performance migliori
+    minify: 'esbuild',
+    // Altre opzioni di build
+    sourcemap: false,
+    // Target moderno per bundle più piccoli
+    target: 'esnext',
+    // Disabilitiamo il code splitting CSS per aumentare la performance
+    cssCodeSplit: false,
+    // Riduciamo la dimensione dei chunk
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks: undefined,
         inlineDynamicImports: true
       }
-    },
-    // Use esbuild for minification instead of terser
-    minify: 'esbuild',
-    // Other build options
-    sourcemap: false,
-    // Reduce the number of Rollup operations
-    target: 'esnext',
-    cssCodeSplit: false
+    }
   },
   // Resolve path aliases
   resolve: {

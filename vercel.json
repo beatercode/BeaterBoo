@@ -1,7 +1,7 @@
 {
-  "buildCommand": "npm run build:vercel",
+  "buildCommand": "bun run build",
   "outputDirectory": "dist",
-  "installCommand": "npm install --no-optional",
+  "installCommand": "bun install",
   "rewrites": [
     {
       "source": "/(.*)",
