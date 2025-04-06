@@ -170,6 +170,59 @@ async function handler(req, res) {
       }
     }
     
+    // PUT /api/wordsets - Aggiorna un set esistente
+    if (req.method === 'PUT') {
+      const wordSet = req.body;
+      const uuid = wordSet.id;
+      const client = await pool.connect();
+      
+      try {
+        await client.query('BEGIN');
+        
+        // Registra o aggiorna il dispositivo
+        await client.query(`
+          INSERT INTO devices (device_id, last_seen)
+          VALUES ($1, CURRENT_TIMESTAMP)
+          ON CONFLICT (device_id) 
+          DO UPDATE SET last_seen = CURRENT_TIMESTAMP
+        `, [deviceId]);
+        
+        // Inserisci o aggiorna il set
+        await client.query(`
+          INSERT INTO word_sets (uuid, name, description, is_custom, created_at, device_id)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (uuid) 
+          DO UPDATE SET 
+            name = EXCLUDED.name,
+            description = EXCLUDED.description
+        `, [uuid, wordSet.name, wordSet.description, wordSet.isCustom, new Date(wordSet.createdAt), deviceId]);
+        
+        // Se ci sono carte, inseriscile
+        if (wordSet.cards && wordSet.cards.length > 0) {
+          // Prima elimina eventuali carte esistenti (in caso di aggiornamento)
+          await client.query('DELETE FROM taboo_cards WHERE set_uuid = $1', [uuid]);
+          
+          // Poi inserisci le nuove carte
+          for (const card of wordSet.cards) {
+            await client.query(`
+              INSERT INTO taboo_cards (set_uuid, main_word, taboo_words)
+              VALUES ($1, $2, $3)
+            `, [uuid, card.mainWord, card.tabooWords]);
+          }
+        }
+        
+        await client.query('COMMIT');
+        
+        res.statusCode = 200;
+        return res.end(JSON.stringify(wordSet));
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+    
     // POST /api/wordsets - Crea un nuovo set
     if (req.method === 'POST') {
       const wordSet = req.body;

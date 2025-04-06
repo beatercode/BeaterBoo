@@ -46,7 +46,7 @@ async function getDeviceId(): Promise<string> {
   }
 }
 
-// Sostituisco la funzione apiCall per usare sempre l'API reale
+// Chiamata API generica
 async function apiCall<T>(
   endpoint: string,
   method: string = "GET",
@@ -58,16 +58,19 @@ async function apiCall<T>(
   try {
     let url;
     
+    // In ambiente build, usa l'URL di produzione
+    const baseUrl = import.meta.env.PROD ? 'https://beaterboo.vercel.app' : '';
+    
     if (endpoint === 'wordsets') {
-      url = '/api/wordsets';
+      url = `${baseUrl}/api/wordsets`;
     } else if (endpoint.match(/wordsets\/(.+)\/permissions/)) {
       const setId = endpoint.split('/')[1];
-      url = `/api/wordsets?id=${setId}&permissions=true`;
+      url = `${baseUrl}/api/wordsets?id=${setId}&permissions=true`;
     } else if (endpoint.match(/wordsets\/(.+)/)) {
       const setId = endpoint.split('/')[1];
-      url = `/api/wordsets?id=${setId}`;
+      url = `${baseUrl}/api/wordsets?id=${setId}`;
     } else {
-      url = `/api/${endpoint}`;
+      url = `${baseUrl}/api/${endpoint}`;
     }
     
     console.log(`Chiamata API a ${url}, metodo: ${method}`);
@@ -127,6 +130,15 @@ async function loadWordSets(): Promise<WordSet[]> {
   try {
     // Chiamata API per ottenere tutti i set di parole
     const sets = await apiCall<WordSet[]>("wordsets");
+    
+    // Mostra gli ID dei set per debug
+    console.log("Set di parole caricati:", sets.map(set => ({
+      id: set.id,
+      name: set.name,
+      isCustom: set.isCustom,
+      creatorDeviceId: set.creatorDeviceId
+    })));
+    
     return sets;
   } catch (error) {
     console.error("Errore nel caricamento dei set:", error);
@@ -136,9 +148,16 @@ async function loadWordSets(): Promise<WordSet[]> {
   }
 }
 
-// Modifico anche canDeleteWordSet per usare sempre l'API reale
+// Modifico canDeleteWordSet per usare sempre l'API reale
 async function canDeleteWordSet(setId: string): Promise<boolean> {
   try {
+    // Nel caso di un set appena creato in locale (che non ha ancora un ID numerico),
+    // consideriamo l'utente come proprietario
+    if (!setId.match(/^\d+$/)) {
+      console.log(`Set con ID non numerico (${setId}), l'utente è considerato proprietario`);
+      return true;
+    }
+
     // Chiamata API per verificare i permessi
     const result = await apiCall<{ canDelete: boolean }>(
       `wordsets/${setId}/permissions`
@@ -146,6 +165,14 @@ async function canDeleteWordSet(setId: string): Promise<boolean> {
     return result.canDelete;
   } catch (error) {
     console.error("Errore nella verifica dei permessi:", error);
+    
+    // In caso di errore, se siamo in locale, permettiamo l'eliminazione
+    // Questo permette di eliminare i set quando non c'è connessione al backend
+    if (!import.meta.env.PROD) {
+      console.warn("Permettendo l'eliminazione in modalità sviluppo nonostante l'errore");
+      return true;
+    }
+    
     // In caso di errore in produzione, non permettiamo l'eliminazione
     return false;
   }
