@@ -35,6 +35,8 @@ export default function App() {
   
   const [wordSets, setWordSets] = React.useState<WordSet[]>(mockWordSets);
   const [gamePhase, setGamePhase] = React.useState<GamePhase>('menu');
+  const [isAddingCardsToSet, setIsAddingCardsToSet] = React.useState(false);
+  const [targetWordSetId, setTargetWordSetId] = React.useState<string | null>(null);
   
   console.log('Current game phase:', gamePhase);
   
@@ -44,7 +46,6 @@ export default function App() {
     endTurn,
     correctGuess,
     skipCard,
-    // setCards, // Removing unused variable
     setPlayers,
     startNewRound,
     setWordSet
@@ -98,6 +99,42 @@ export default function App() {
     setGamePhase('menu');
   };
 
+  const handleAddCardsToSet = (wordSetId: string, count: number) => {
+    // Trova il set a cui aggiungere le carte
+    const targetSet = wordSets.find(set => set.id === wordSetId);
+    if (!targetSet) return;
+    
+    // Salva lo stato per la generazione
+    setTargetWordSetId(wordSetId);
+    setIsAddingCardsToSet(true);
+    
+    // Vai alla schermata di generazione, passando il conteggio desiderato
+    setGamePhase('wordSetGeneration');
+    
+    // Il conteggio carte verrà utilizzato dal componente WordSetGenerator tramite initialCardCount
+  };
+
+  const handleCardsAddedToSet = (cards: TabooCard[]) => {
+    if (!targetWordSetId) return;
+    
+    setWordSets(prev => prev.map(set => {
+      if (set.id === targetWordSetId) {
+        return {
+          ...set,
+          cards: [...set.cards, ...cards]
+        };
+      }
+      return set;
+    }));
+    
+    // Resetta lo stato
+    setTargetWordSetId(null);
+    setIsAddingCardsToSet(false);
+    
+    // Torna alla lista dei set
+    setGamePhase('wordSets');
+  };
+
   const handleRoundEnd = () => {
     if (gameState.roundNumber >= gameState.totalRounds) {
       setGamePhase('gameEnd');
@@ -115,13 +152,26 @@ export default function App() {
     setGamePhase('menu');
   };
 
+  // Estrai le parole esistenti per evitare duplicati
+  const getExistingWords = React.useMemo(() => {
+    if (isAddingCardsToSet && targetWordSetId) {
+      const targetSet = wordSets.find(set => set.id === targetWordSetId);
+      return targetSet ? targetSet.cards.map(card => card.mainWord) : [];
+    }
+    return [];
+  }, [isAddingCardsToSet, targetWordSetId, wordSets]);
+
   console.log('About to render UI');
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24 relative overflow-hidden">
+      {/* Sfondo migliorato con maggiore contrasto e effetti */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-radial from-primary-100/20 via-background to-background" />
-        <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-b from-primary-100/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-radial from-primary-100/30 via-background to-background" />
+        <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-b from-primary-200/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-primary-100/10 to-transparent" />
+        <div className="absolute -left-24 top-1/4 w-64 h-64 rounded-full bg-secondary-100/10 blur-3xl" />
+        <div className="absolute -right-24 top-2/3 w-80 h-80 rounded-full bg-primary-100/10 blur-3xl" />
       </div>
 
       <AnimatePresence mode="wait">
@@ -144,14 +194,16 @@ export default function App() {
           <WordSets
             wordSets={wordSets}
             onSelectWordSet={handleSelectWordSet}
+            onAddCardsToSet={handleAddCardsToSet}
             onBack={() => setGamePhase('menu')}
           />
         )}
 
         {gamePhase === 'wordSetGeneration' && (
           <WordSetGenerator
-            onComplete={handleWordSetGenerated}
-            onBack={() => setGamePhase('menu')}
+            onComplete={isAddingCardsToSet ? handleCardsAddedToSet : handleWordSetGenerated}
+            onBack={() => isAddingCardsToSet ? setGamePhase('wordSets') : setGamePhase('menu')}
+            existingWords={getExistingWords}
           />
         )}
 
@@ -166,7 +218,7 @@ export default function App() {
 
             {!gameState.isPlaying ? (
               <div className="text-center">
-                <h2 className="text-xl mb-4">
+                <h2 className="text-xl mb-4 font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                   {`Turno Squadra ${gameState.currentTeam === 'team1' ? '1' : '2'}`}
                 </h2>
                 <Button
@@ -174,6 +226,7 @@ export default function App() {
                   size="lg"
                   onPress={startGame}
                   startContent={<Icon icon="lucide:play" />}
+                  className="shadow-md hover:shadow-lg transform hover:scale-[1.02] transition-all"
                 >
                   Inizia
                 </Button>
