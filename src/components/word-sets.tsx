@@ -1,19 +1,19 @@
 import React from 'react';
-import { Card, CardBody, Button, Chip } from '@heroui/react';
-import { Icon } from '@iconify/react';
+import { Card, CardBody, Chip } from '@heroui/react';
 import { motion } from 'framer-motion';
 import { WordSet } from '../types/game';
 
 interface WordSetsProps {
   wordSets: WordSet[];
   onSelectWordSet: (wordSet: WordSet) => void;
-  onBack: () => void;
+  // onBack is kept in the interface for future use if needed
+  onBack?: () => void;
 }
 
 export const WordSets: React.FC<WordSetsProps> = ({
   wordSets,
   onSelectWordSet,
-  onBack
+  // We're not using onBack but keeping it in the interface for future use
 }) => {
   return (
     <motion.div
