@@ -10,14 +10,28 @@ BeaterBoo è un'applicazione moderna per giocare a Taboo, il classico gioco di p
 - HeroUI React Components
 - Framer Motion per le animazioni
 - Google Gemini API per generare parole tabù
-- Supporto offline tramite localStorage
+- API RESTful per la connessione diretta al database
+
+## Architettura
+
+L'applicazione è composta da due parti principali:
+1. **Frontend**: Applicazione React in `/src`
+2. **Backend**: Servizio API in `/api`
+
+### Frontend
+
+Il frontend è una SPA React che comunica con il backend tramite API RESTful.
+
+### Backend
+
+Il backend è un'API serverless che gestisce tutte le operazioni sul database PostgreSQL. Ulteriori dettagli sono disponibili nel [README dell'API](./api/README.md).
 
 ## Funzionalità principali
 
 - Creazione e gestione di set di parole personalizzati
 - Generazione automatica di parole tabù tramite AI
 - Interfaccia utente intuitiva e reattiva
-- Modalità offline con persistenza locale
+- Persistenza dei dati su database PostgreSQL
 - Sistema di punteggio e turni per più squadre
 
 ## Sviluppo
@@ -26,26 +40,40 @@ BeaterBoo è un'applicazione moderna per giocare a Taboo, il classico gioco di p
 
 - Node.js 16+ o Bun
 - Un API key per Google Gemini (opzionale)
+- Un database PostgreSQL (per il backend)
 
 ### Installazione
 
 ```bash
 # Installa le dipendenze con bun
 bun install
+
+# Installa le dipendenze dell'API
+cd api && bun install && cd ..
 ```
 
 ### Comandi principali
 
 ```bash
-# Avvia il server di sviluppo
+# Avvia il server di sviluppo frontend
 bun run dev
 
-# Compila per la produzione
+# Avvia il server di sviluppo API
+cd api && bun run dev
+
+# Compila il frontend per la produzione
 bun run build
 
-# Esegui il linting del codice
-bun run lint
+# Compila l'API per la produzione
+cd api && bun run build
 ```
+
+## Deploy
+
+Per il deploy completo dell'applicazione, si consiglia di:
+1. Deployare il frontend su Vercel/Netlify
+2. Deployare l'API su Vercel Functions o servizio simile
+3. Configurare correttamente le variabili d'ambiente
 
 ## Note di ottimizzazione
 

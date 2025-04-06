@@ -2,8 +2,8 @@ import { TabooCard } from '../types/game';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize the Generative AI API with your API key from environment variables
-const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || 'AIzaSyD0NIUoBAXMBPuXETU4WHWVhFNxlr9g4gY';
-const MODEL_NAME = process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-1.5-pro';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyD0NIUoBAXMBPuXETU4WHWVhFNxlr9g4gY';
+const MODEL_NAME = import.meta.env.VITE_GEMINI_MODEL || 'gemini-1.5-pro';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 export async function generateTabooWords(

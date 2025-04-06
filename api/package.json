@@ -1,0 +1,23 @@
+{
+  "name": "beaterboo-api",
+  "version": "1.0.0",
+  "description": "API per BeaterBoo Taboo Game",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch index.ts",
+    "build": "bun build index.ts --target node --outfile index.js",
+    "start": "bun index.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.4.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 
