@@ -1,5 +1,6 @@
-import { Pool } from 'pg';
 import { VercelRequest, VercelResponse } from '@vercel/node';
+// Usiamo require che è più compatibile con pg
+const pg = require('pg');
 
 // Interfacce per i tipi
 interface TabooCard {
@@ -18,16 +19,20 @@ interface WordSet {
   creatorDeviceId?: string;
 }
 
-// Configurazione del pool di connessioni PostgreSQL
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_jgcz7wBDkAE8@ep-weathered-bar-a5p9x10j-pooler.us-east-2.aws.neon.tech/beaterboo',
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+// Configurazione del pool di connessioni PostgreSQL - creiamo il pool solo quando serve
+const createPool = () => {
+  const { Pool } = pg;
+  return new Pool({
+    connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_jgcz7wBDkAE8@ep-weathered-bar-a5p9x10j-pooler.us-east-2.aws.neon.tech/beaterboo',
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+};
 
 // Inizializza il database
 async function initDatabase() {
+  const pool = createPool();
   const client = await pool.connect();
   
   try {
@@ -63,10 +68,11 @@ async function initDatabase() {
     console.error('Errore nell\'inizializzazione del database:', error);
   } finally {
     client.release();
+    pool.end();
   }
 }
 
-// Assicurati che il database sia inizializzato
+// Inizializza il database all'avvio dell'applicazione
 initDatabase().catch(console.error);
 
 // Impostazione CORS per le risposte
@@ -88,6 +94,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   // Ottenere l'ID del dispositivo dall'header
   const deviceId = req.headers['x-device-id'] as string || '';
+  
+  // Crea il pool di connessione
+  const pool = createPool();
   
   // In base al percorso e al metodo, gestisci diverse operazioni
   try {
@@ -111,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             WHERE set_uuid = $1
           `, [setRow.uuid]);
           
-          const cards: TabooCard[] = cardsResult.rows.map(card => ({
+          const cards: TabooCard[] = cardsResult.rows.map((card: any) => ({
             id: card.id.toString(),
             mainWord: card.main_word,
             tabooWords: card.taboo_words
@@ -255,5 +264,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Errore nella gestione della richiesta:', error);
     return res.status(500).json({ error: 'Errore interno del server' });
+  } finally {
+    // Chiudi il pool alla fine
+    await pool.end();
   }
 } 
