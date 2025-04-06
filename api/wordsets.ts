@@ -1,6 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 // Usiamo require che è più compatibile con pg
 const pg = require('pg');
+const http = require('http');
 
 // Interfacce per i tipi
 interface TabooCard {
@@ -76,32 +77,57 @@ async function initDatabase() {
 initDatabase().catch(console.error);
 
 // Impostazione CORS per le risposte
-function setCorsHeaders(res: VercelResponse) {
+function setCorsHeaders(res) {
   // Allow from any origin
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Device-ID');
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req, res) {
   // Gestione CORS
   setCorsHeaders(res);
   
   // Gestione richieste OPTIONS (preflight)
   if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+    res.statusCode = 204;
+    return res.end();
   }
   
   // Ottenere l'ID del dispositivo dall'header
-  const deviceId = req.headers['x-device-id'] as string || '';
+  const deviceId = req.headers['x-device-id'] || '';
   
   // Crea il pool di connessione
   const pool = createPool();
   
+  // Legge il corpo della richiesta per metodi POST/PUT
+  if (req.method === 'POST' || req.method === 'PUT') {
+    const buffers = [];
+    for await (const chunk of req) {
+      buffers.push(chunk);
+    }
+    const data = Buffer.concat(buffers).toString();
+    try {
+      req.body = JSON.parse(data);
+    } catch (e) {
+      res.statusCode = 400;
+      return res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+    }
+  }
+
   // In base al percorso e al metodo, gestisci diverse operazioni
   try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    const isWordSetsAPI = pathSegments[0] === 'api' && pathSegments[1] === 'wordsets';
+    
+    if (!isWordSetsAPI) {
+      res.statusCode = 404;
+      return res.end(JSON.stringify({ error: 'API endpoint not found' }));
+    }
+    
     // GET /api/wordsets - Ottieni tutti i set
-    if (req.method === 'GET' && !req.query.id) {
+    if (req.method === 'GET' && !url.searchParams.get('id')) {
       const client = await pool.connect();
       
       try {
@@ -111,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ORDER BY created_at DESC
         `);
         
-        const sets: WordSet[] = [];
+        const sets = [];
         
         // Per ogni set, ottieni le carte
         for (const setRow of setsResult.rows) {
@@ -120,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             WHERE set_uuid = $1
           `, [setRow.uuid]);
           
-          const cards: TabooCard[] = cardsResult.rows.map((card: any) => ({
+          const cards = cardsResult.rows.map((card) => ({
             id: card.id.toString(),
             mainWord: card.main_word,
             tabooWords: card.taboo_words
@@ -137,7 +163,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
         }
         
-        return res.status(200).json(sets);
+        res.statusCode = 200;
+        return res.end(JSON.stringify(sets));
       } finally {
         client.release();
       }
@@ -145,7 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     // POST /api/wordsets - Crea un nuovo set
     if (req.method === 'POST') {
-      const wordSet = req.body as WordSet;
+      const wordSet = req.body;
       const uuid = wordSet.id;
       const client = await pool.connect();
       
@@ -186,7 +213,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         await client.query('COMMIT');
         
-        return res.status(200).json(wordSet);
+        res.statusCode = 200;
+        return res.end(JSON.stringify(wordSet));
       } catch (error) {
         await client.query('ROLLBACK');
         throw error;
@@ -195,77 +223,140 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
     
-    // PUT /api/wordsets - Aggiorna un set esistente
-    if (req.method === 'PUT') {
-      // Riutilizziamo la stessa implementazione di POST
-      req.method = 'POST';
-      return handler(req, res);
-    }
-    
-    // GET /api/wordsets?id=XXX&permissions=true - Verifica permessi
-    if (req.method === 'GET' && req.query.id && req.query.permissions) {
-      const setId = req.query.id as string;
+    // GET /api/wordsets?id=XXX - Ottieni un set specifico
+    if (req.method === 'GET' && url.searchParams.get('id')) {
+      const setId = url.searchParams.get('id');
+      const checkPermissions = url.searchParams.get('permissions') === 'true';
+      
+      // Se richiediamo solo i permessi
+      if (checkPermissions) {
+        const client = await pool.connect();
+        
+        try {
+          const result = await client.query(
+            'SELECT device_id FROM word_sets WHERE uuid = $1',
+            [setId]
+          );
+          
+          if (result.rows.length === 0) {
+            res.statusCode = 404;
+            return res.end(JSON.stringify({ error: 'Set not found' }));
+          }
+          
+          const canDelete = result.rows[0].device_id === deviceId;
+          
+          res.statusCode = 200;
+          return res.end(JSON.stringify({ canDelete }));
+        } finally {
+          client.release();
+        }
+      }
+      
+      // Altrimenti restituisci il set completo
       const client = await pool.connect();
       
       try {
-        const result = await client.query(`
-          SELECT 1 FROM word_sets
-          WHERE uuid = $1 AND device_id = $2
-        `, [setId, deviceId]);
+        const setResult = await client.query(
+          'SELECT * FROM word_sets WHERE uuid = $1',
+          [setId]
+        );
         
-        return res.status(200).json({ 
-          canDelete: result.rowCount !== null && result.rowCount > 0 
-        });
+        if (setResult.rows.length === 0) {
+          res.statusCode = 404;
+          return res.end(JSON.stringify({ error: 'Set not found' }));
+        }
+        
+        const setRow = setResult.rows[0];
+        
+        const cardsResult = await client.query(
+          'SELECT * FROM taboo_cards WHERE set_uuid = $1',
+          [setId]
+        );
+        
+        const cards = cardsResult.rows.map((card) => ({
+          id: card.id.toString(),
+          mainWord: card.main_word,
+          tabooWords: card.taboo_words
+        }));
+        
+        const wordSet = {
+          id: setRow.uuid,
+          name: setRow.name,
+          description: setRow.description,
+          isCustom: setRow.is_custom,
+          createdAt: setRow.created_at.toISOString(),
+          cards,
+          creatorDeviceId: setRow.device_id
+        };
+        
+        res.statusCode = 200;
+        return res.end(JSON.stringify(wordSet));
       } finally {
         client.release();
       }
     }
     
     // DELETE /api/wordsets?id=XXX - Elimina un set
-    if (req.method === 'DELETE' && req.query.id) {
-      const setId = req.query.id as string;
+    if (req.method === 'DELETE' && url.searchParams.get('id')) {
+      const setId = url.searchParams.get('id');
       const client = await pool.connect();
       
       try {
-        // Prima verifica se l'utente può eliminare il set
-        const permResult = await client.query(`
-          SELECT 1 FROM word_sets
-          WHERE uuid = $1 AND device_id = $2
-        `, [setId, deviceId]);
+        // Verifica che l'utente sia il proprietario
+        const permResult = await client.query(
+          'SELECT device_id FROM word_sets WHERE uuid = $1',
+          [setId]
+        );
         
-        if (permResult.rowCount === 0) {
-          return res.status(403).json({ 
-            error: 'Non hai i permessi per eliminare questo set' 
-          });
+        if (permResult.rows.length === 0) {
+          res.statusCode = 404;
+          return res.end(JSON.stringify({ error: 'Set not found' }));
         }
         
-        await client.query('BEGIN');
+        if (permResult.rows[0].device_id !== deviceId) {
+          res.statusCode = 403;
+          return res.end(JSON.stringify({ error: 'Permission denied' }));
+        }
         
-        // Elimina tutte le carte associate al set
-        await client.query('DELETE FROM taboo_cards WHERE set_uuid = $1', [setId]);
-        
-        // Elimina il set
+        // Elimina il set (le carte associate verranno eliminate a cascata)
         await client.query('DELETE FROM word_sets WHERE uuid = $1', [setId]);
         
-        await client.query('COMMIT');
-        
-        return res.status(200).json({ success: true });
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
+        res.statusCode = 200;
+        return res.end(JSON.stringify({ success: true }));
       } finally {
         client.release();
       }
     }
     
-    // Se arrivi qui, il percorso non è supportato
-    return res.status(404).json({ error: 'Endpoint non trovato' });
+    // Se arriviamo qui, endpoint non trovato
+    res.statusCode = 404;
+    return res.end(JSON.stringify({ error: 'Method not supported' }));
     
   } catch (error) {
     console.error('Errore nella gestione della richiesta:', error);
-    return res.status(500).json({ error: 'Errore interno del server' });
+    res.statusCode = 500;
+    return res.end(JSON.stringify({ error: 'Internal server error' }));
   } finally {
-    // Chiudi il pool alla fine
-    await pool.end();
+    pool.end();
   }
-} 
+}
+
+// Crea un server HTTP che risponde sulla porta 3001
+const PORT = process.env.PORT || 3001;
+const server = http.createServer(async (req, res) => {
+  // Imposta il tipo di contenuto a JSON per tutte le risposte
+  res.setHeader('Content-Type', 'application/json');
+  
+  try {
+    await handler(req, res);
+  } catch (error) {
+    console.error('Errore non gestito:', error);
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+});
+
+// Avvia il server
+server.listen(PORT, () => {
+  console.log(`🚀 Server API avviato su http://localhost:${PORT}`);
+}); 

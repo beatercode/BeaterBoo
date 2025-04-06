@@ -46,12 +46,13 @@ async function getDeviceId(): Promise<string> {
   }
 }
 
-// Chiamata API generica
+// Sostituisco la funzione apiCall per usare sempre l'API reale
 async function apiCall<T>(
   endpoint: string,
   method: string = "GET",
   data?: any
 ): Promise<T> {
+  // Codice originale per ambiente di produzione
   const deviceId = await getDeviceId();
 
   try {
@@ -135,7 +136,7 @@ async function loadWordSets(): Promise<WordSet[]> {
   }
 }
 
-// Verificare se l'utente può eliminare un set
+// Modifico anche canDeleteWordSet per usare sempre l'API reale
 async function canDeleteWordSet(setId: string): Promise<boolean> {
   try {
     // Chiamata API per verificare i permessi
@@ -145,12 +146,12 @@ async function canDeleteWordSet(setId: string): Promise<boolean> {
     return result.canDelete;
   } catch (error) {
     console.error("Errore nella verifica dei permessi:", error);
-    // In modalità sviluppo o errore, permettiamo sempre l'eliminazione
-    return import.meta.env.DEV === true || setId === "1";
+    // In caso di errore in produzione, non permettiamo l'eliminazione
+    return false;
   }
 }
 
-// Eliminare un set di parole
+// Modifico deleteWordSet per usare sempre l'API reale
 async function deleteWordSet(setId: string): Promise<boolean> {
   try {
     // Prima verifica se può essere eliminato
@@ -164,8 +165,7 @@ async function deleteWordSet(setId: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Errore nell'eliminazione del set:", error);
-    // In modalità sviluppo, simuliamo successo
-    return import.meta.env.DEV;
+    return false;
   }
 }
 

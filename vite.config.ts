@@ -7,6 +7,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001', // L'URL del tuo server API
+        changeOrigin: true
+      }
+    }
   },
   build: {
     // Utilizziamo esbuild per la minificazione per performance migliori

@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "API per BeaterBoo Taboo Game",
   "type": "commonjs",
+  "scripts": {
+    "dev": "bun wordsets.ts",
+    "start": "bun wordsets.ts"
+  },
   "dependencies": {
     "pg": "^8.11.3"
   }
