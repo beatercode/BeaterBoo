@@ -5,12 +5,6 @@ import FingerprintJS from "@fingerprintjs/fingerprintjs";
 // Inizializza fingerprintJS per l'identificazione del dispositivo
 const fpPromise = FingerprintJS.load();
 
-// Endpoint API per le operazioni sul database
-// Durante lo sviluppo usa l'API locale, altrimenti usa l'API remota
-const API_BASE_URL = import.meta.env.DEV
-  ? "http://localhost:3001/api"
-  : "/api";
-
 // Set di parole mockati per fallback in caso di errori API
 const mockWordSets: WordSet[] = [
   {
@@ -61,19 +55,18 @@ async function apiCall<T>(
   const deviceId = await getDeviceId();
 
   try {
-    let url = `${API_BASE_URL}/wordsets`;
+    let url;
     
-    // Costruisci l'URL in base al tipo di endpoint
     if (endpoint === 'wordsets') {
-      // URL base già impostato
+      url = '/api/wordsets';
     } else if (endpoint.match(/wordsets\/(.+)\/permissions/)) {
-      // Handling per la verifica dei permessi - formato: api/wordsets?id=XXX&permissions=true
       const setId = endpoint.split('/')[1];
-      url = `${API_BASE_URL}/wordsets?id=${setId}&permissions=true`;
+      url = `/api/wordsets?id=${setId}&permissions=true`;
     } else if (endpoint.match(/wordsets\/(.+)/)) {
-      // Handling per le operazioni su un set specifico - formato: api/wordsets?id=XXX
       const setId = endpoint.split('/')[1];
-      url = `${API_BASE_URL}/wordsets?id=${setId}`;
+      url = `/api/wordsets?id=${setId}`;
+    } else {
+      url = `/api/${endpoint}`;
     }
     
     console.log(`Chiamata API a ${url}, metodo: ${method}`);

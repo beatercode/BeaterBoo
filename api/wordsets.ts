@@ -70,25 +70,20 @@ async function initDatabase() {
 initDatabase().catch(console.error);
 
 // Impostazione CORS per le risposte
-const setCorsHeaders = (res: VercelResponse, origin: string | undefined) => {
-  // In production only allow specific origins
-  const allowedOrigins = ['https://beaterboo.vercel.app', 'https://heroui-project.vercel.app'];
-  
-  const isAllowed = origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production');
-  res.setHeader('Access-Control-Allow-Origin', isAllowed ? origin : 'https://beaterboo.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, PUT, DELETE');
+function setCorsHeaders(res: VercelResponse) {
+  // Allow from any origin
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Device-ID');
-  res.setHeader('Access-Control-Max-Age', '86400');
-};
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Gestione CORS
-  setCorsHeaders(res, req.headers.origin);
+  setCorsHeaders(res);
   
   // Gestione richieste OPTIONS (preflight)
   if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
+    return res.status(204).end();
   }
   
   // Ottenere l'ID del dispositivo dall'header

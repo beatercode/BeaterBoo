@@ -4,14 +4,6 @@
   "installCommand": "bun install",
   "rewrites": [
     {
-      "source": "/api/wordsets",
-      "destination": "/api-vercel/wordsets"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api-vercel/$1"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
