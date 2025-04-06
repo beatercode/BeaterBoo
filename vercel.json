@@ -1,12 +1,24 @@
 {
   "version": 2,
+  "framework": "vite",
   "buildCommand": "npm run build:vercel",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "routes": [
+  "installCommand": "npm install --no-optional",
+  "headers": [
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript; charset=utf-8"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

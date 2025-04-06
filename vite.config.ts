@@ -9,24 +9,20 @@ export default defineConfig({
     allowedHosts: true,
   },
   build: {
-    // Reduce chunk size to avoid issues with Vercel
+    // Disable chunk splitting to avoid Rollup issues
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'framer-motion'],
-          heroui: ['@heroui/react', '@heroui/use-theme'],
-        },
-      },
+        manualChunks: undefined,
+        inlineDynamicImports: true
+      }
     },
-    // Ensure source maps are generated for better debugging
-    sourcemap: true,
-    // Optimize build size
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false, // Keep console logs for debugging
-      },
-    },
+    // Use esbuild for minification instead of terser
+    minify: 'esbuild',
+    // Other build options
+    sourcemap: false,
+    // Reduce the number of Rollup operations
+    target: 'esnext',
+    cssCodeSplit: false
   },
   // Resolve path aliases
   resolve: {
