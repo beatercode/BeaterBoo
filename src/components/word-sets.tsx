@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardBody, Chip, Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Slider, Progress } from '@heroui/react';
+import { Card, CardBody, Chip, Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Slider, Progress, Image } from '@heroui/react';
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';
 import { WordSet } from '../types/game';
@@ -25,6 +25,7 @@ export const WordSets: React.FC<WordSetsProps> = ({
   const [cardsToAdd, setCardsToAdd] = React.useState(30);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
+  const [loadedImages, setLoadedImages] = React.useState<Set<string>>(new Set());
   
   // State per il modale di conferma eliminazione
   const { 
@@ -62,6 +63,17 @@ export const WordSets: React.FC<WordSetsProps> = ({
   // Funzione per verificare se l'utente può eliminare un determinato set
   const canUserDeleteSet = (wordSet: WordSet) => {
     return deletableSetIds.has(wordSet.id);
+  };
+
+  // Funzione per ottenere l'URL dell'immagine per un set di parole
+  const getSetImageUrl = (setName: string) => {
+    const encodedName = encodeURIComponent(setName);
+    return `https://image.pollinations.ai/prompt/${encodedName}+_card_set_illustration`;
+  };
+
+  // Gestione del caricamento delle immagini
+  const handleImageLoad = (setId: string) => {
+    setLoadedImages(prev => new Set(prev).add(setId));
   };
 
   // Incrementa progressivamente la barra di progresso durante la generazione
@@ -146,9 +158,9 @@ export const WordSets: React.FC<WordSetsProps> = ({
       initial={{ opacity: 0, x: 100 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -100 }}
-      className="w-full max-w-md mx-auto space-y-4 pb-20"
+      className="w-full max-w-md mx-auto pb-20 pt-2"
     >
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4">
         <Button
           variant="light"
           startContent={<Icon icon="lucide:arrow-left" />}
@@ -157,40 +169,47 @@ export const WordSets: React.FC<WordSetsProps> = ({
         >
           Indietro
         </Button>
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Custom Decks</h2>
+        <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Set di Parole</h2>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
         {wordSets.map((wordSet) => (
           <Card
             key={wordSet.id}
-            className="w-full transition-all hover:shadow-lg hover:scale-[1.01] border border-primary-100/30 backdrop-blur-sm bg-content1/90"
+            className="transition-all hover:shadow-lg hover:scale-[1.02] border border-primary-100/30 backdrop-blur-sm bg-content1/90"
             onPress={(e) => handleCardClick(wordSet, e)}
             isPressable
             tabIndex={0}
           >
-            <CardBody className="flex flex-col gap-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-semibold">{wordSet.name}</h3>
-                  <p className="text-sm text-default-500">{wordSet.description}</p>
-                </div>
+            <CardBody className="p-0 flex flex-col">
+              <div className="relative h-24 w-full">
+                <Image
+                  src={getSetImageUrl(wordSet.name)}
+                  alt={wordSet.name}
+                  className="object-cover h-full w-full rounded-t-lg"
+                  onLoad={() => handleImageLoad(wordSet.id)}
+                  isLoading={!loadedImages.has(wordSet.id)}
+                  radius="none"
+                />
                 {wordSet.isCustom && (
-                  <Chip color="primary" variant="flat" size="sm" className="animate-pulse">
-                    Personalizzato
+                  <Chip 
+                    color="primary" 
+                    variant="flat" 
+                    size="sm" 
+                    className="absolute top-1 right-1 animate-pulse scale-75"
+                  >
+                    Custom
                   </Chip>
                 )}
               </div>
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-sm text-default-400">
-                  {wordSet.cards.length} parole
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-default-400">
-                    {new Date(wordSet.createdAt).toLocaleDateString()}
-                  </span>
+              
+              <div className="p-2">
+                <h3 className="text-sm font-semibold line-clamp-1 mt-2 mb-0.5">{wordSet.name}</h3>
+                <p className="text-xs text-default-500">{wordSet.cards.length} parole</p>
+                
+                <div className="flex justify-end items-center mt-1">
                   {wordSet.isCustom && (
-                    <div className="flex gap-2" data-no-select>
+                    <div className="flex gap-1" data-no-select>
                       {onAddCardsToSet && (
                         <Button 
                           size="sm" 
@@ -198,9 +217,9 @@ export const WordSets: React.FC<WordSetsProps> = ({
                           color="primary" 
                           variant="light"
                           onPress={(e) => handleOpenAddCardsModal(wordSet, e)}
-                          className="hover:bg-primary-100/50"
+                          className="hover:bg-primary-100/50 scale-75 min-w-0 w-6 h-6"
                         >
-                          <Icon icon="lucide:plus" className="text-primary" />
+                          <Icon icon="lucide:plus" className="text-primary text-xs" />
                         </Button>
                       )}
                       
@@ -211,9 +230,9 @@ export const WordSets: React.FC<WordSetsProps> = ({
                           color="danger" 
                           variant="light"
                           onPress={(e) => handleOpenDeleteModal(wordSet, e)}
-                          className="hover:bg-danger-100/50"
+                          className="hover:bg-danger-100/50 scale-75 min-w-0 w-6 h-6"
                         >
-                          <Icon icon="lucide:trash-2" className="text-danger" />
+                          <Icon icon="lucide:trash-2" className="text-danger text-xs" />
                         </Button>
                       )}
                     </div>

@@ -1,7 +1,7 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { VercelRequest, VercelResponse } from "@vercel/node";
 // Usiamo require che è più compatibile con pg
-const pg = require('pg');
-const http = require('http');
+const pg = require("pg");
+const http = require("http");
 
 // Interfacce per i tipi
 interface TabooCard {
@@ -24,7 +24,9 @@ interface WordSet {
 const createPool = () => {
   const { Pool } = pg;
   return new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_jgcz7wBDkAE8@ep-weathered-bar-a5p9x10j-pooler.us-east-2.aws.neon.tech/beaterboo',
+    connectionString:
+      process.env.DATABASE_URL ||
+      "postgresql://neondb_owner:npg_jgcz7wBDkAE8@ep-weathered-bar-a5p9x10j-pooler.us-east-2.aws.neon.tech/beaterboo",
     ssl: {
       rejectUnauthorized: false
     }
@@ -35,7 +37,7 @@ const createPool = () => {
 async function initDatabase() {
   const pool = createPool();
   const client = await pool.connect();
-  
+
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS devices (
@@ -63,10 +65,10 @@ async function initDatabase() {
         FOREIGN KEY (set_uuid) REFERENCES word_sets(uuid) ON DELETE CASCADE
       );
     `);
-    
-    console.log('Database inizializzato con successo!');
+
+    console.log("Database inizializzato con successo!");
   } catch (error) {
-    console.error('Errore nell\'inizializzazione del database:', error);
+    console.error("Errore nell'inizializzazione del database:", error);
   } finally {
     client.release();
     pool.end();
@@ -77,31 +79,34 @@ async function initDatabase() {
 initDatabase().catch(console.error);
 
 // Impostazione CORS per le risposte
-function setCorsHeaders(res) {
+function setCorsHeaders(res: any): void {
   // Allow from any origin
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Device-ID');
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Device-ID");
 }
 
-async function handler(req, res) {
+async function handler(req: any, res: any): Promise<void> {
   // Gestione CORS
   setCorsHeaders(res);
-  
+
   // Gestione richieste OPTIONS (preflight)
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     res.statusCode = 204;
     return res.end();
   }
-  
+
   // Ottenere l'ID del dispositivo dall'header
-  const deviceId = req.headers['x-device-id'] || '';
-  
+  const deviceId = req.headers["x-device-id"] || "";
+
   // Crea il pool di connessione
   const pool = createPool();
-  
+
   // Legge il corpo della richiesta per metodi POST/PUT
-  if (req.method === 'POST' || req.method === 'PUT') {
+  if (req.method === "POST" || req.method === "PUT") {
     const buffers = [];
     for await (const chunk of req) {
       buffers.push(chunk);
@@ -111,47 +116,51 @@ async function handler(req, res) {
       req.body = JSON.parse(data);
     } catch (e) {
       res.statusCode = 400;
-      return res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+      return res.end(JSON.stringify({ error: "Invalid JSON body" }));
     }
   }
 
   // In base al percorso e al metodo, gestisci diverse operazioni
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    const isWordSetsAPI = pathSegments[0] === 'api' && pathSegments[1] === 'wordsets';
-    
+    const pathSegments = url.pathname.split("/").filter(Boolean);
+    const isWordSetsAPI =
+      pathSegments[0] === "api" && pathSegments[1] === "wordsets";
+
     if (!isWordSetsAPI) {
       res.statusCode = 404;
-      return res.end(JSON.stringify({ error: 'API endpoint not found' }));
+      return res.end(JSON.stringify({ error: "API endpoint not found" }));
     }
-    
+
     // GET /api/wordsets - Ottieni tutti i set
-    if (req.method === 'GET' && !url.searchParams.get('id')) {
+    if (req.method === "GET" && !url.searchParams.get("id")) {
       const client = await pool.connect();
-      
+
       try {
         // Ottieni tutti i set
         const setsResult = await client.query(`
           SELECT * FROM word_sets
           ORDER BY created_at DESC
         `);
-        
+
         const sets = [];
-        
+
         // Per ogni set, ottieni le carte
         for (const setRow of setsResult.rows) {
-          const cardsResult = await client.query(`
+          const cardsResult = await client.query(
+            `
             SELECT * FROM taboo_cards
             WHERE set_uuid = $1
-          `, [setRow.uuid]);
-          
-          const cards = cardsResult.rows.map((card) => ({
+          `,
+            [setRow.uuid]
+          );
+
+          const cards = cardsResult.rows.map((card: any) => ({
             id: card.id.toString(),
             mainWord: card.main_word,
             tabooWords: card.taboo_words
           }));
-          
+
           sets.push({
             id: setRow.uuid,
             name: setRow.name,
@@ -162,176 +171,212 @@ async function handler(req, res) {
             creatorDeviceId: setRow.device_id
           });
         }
-        
+
         res.statusCode = 200;
         return res.end(JSON.stringify(sets));
       } finally {
         client.release();
       }
     }
-    
+
     // PUT /api/wordsets - Aggiorna un set esistente
-    if (req.method === 'PUT') {
+    if (req.method === "PUT") {
       const wordSet = req.body;
       const uuid = wordSet.id;
       const client = await pool.connect();
-      
+
       try {
-        await client.query('BEGIN');
-        
+        await client.query("BEGIN");
+
         // Registra o aggiorna il dispositivo
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO devices (device_id, last_seen)
           VALUES ($1, CURRENT_TIMESTAMP)
           ON CONFLICT (device_id) 
           DO UPDATE SET last_seen = CURRENT_TIMESTAMP
-        `, [deviceId]);
-        
+        `,
+          [deviceId]
+        );
+
         // Inserisci o aggiorna il set
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO word_sets (uuid, name, description, is_custom, created_at, device_id)
           VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (uuid) 
           DO UPDATE SET 
             name = EXCLUDED.name,
             description = EXCLUDED.description
-        `, [uuid, wordSet.name, wordSet.description, wordSet.isCustom, new Date(wordSet.createdAt), deviceId]);
-        
+        `,
+          [
+            uuid,
+            wordSet.name,
+            wordSet.description,
+            wordSet.isCustom,
+            new Date(wordSet.createdAt),
+            deviceId
+          ]
+        );
+
         // Se ci sono carte, inseriscile
         if (wordSet.cards && wordSet.cards.length > 0) {
           // Prima elimina eventuali carte esistenti (in caso di aggiornamento)
-          await client.query('DELETE FROM taboo_cards WHERE set_uuid = $1', [uuid]);
-          
+          await client.query("DELETE FROM taboo_cards WHERE set_uuid = $1", [
+            uuid
+          ]);
+
           // Poi inserisci le nuove carte
           for (const card of wordSet.cards) {
-            await client.query(`
+            await client.query(
+              `
               INSERT INTO taboo_cards (set_uuid, main_word, taboo_words)
               VALUES ($1, $2, $3)
-            `, [uuid, card.mainWord, card.tabooWords]);
+            `,
+              [uuid, card.mainWord, card.tabooWords]
+            );
           }
         }
-        
-        await client.query('COMMIT');
-        
+
+        await client.query("COMMIT");
+
         res.statusCode = 200;
         return res.end(JSON.stringify(wordSet));
       } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         throw error;
       } finally {
         client.release();
       }
     }
-    
+
     // POST /api/wordsets - Crea un nuovo set
-    if (req.method === 'POST') {
+    if (req.method === "POST") {
       const wordSet = req.body;
       const uuid = wordSet.id;
       const client = await pool.connect();
-      
+
       try {
-        await client.query('BEGIN');
-        
+        await client.query("BEGIN");
+
         // Registra o aggiorna il dispositivo
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO devices (device_id, last_seen)
           VALUES ($1, CURRENT_TIMESTAMP)
           ON CONFLICT (device_id) 
           DO UPDATE SET last_seen = CURRENT_TIMESTAMP
-        `, [deviceId]);
-        
+        `,
+          [deviceId]
+        );
+
         // Inserisci il set
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO word_sets (uuid, name, description, is_custom, created_at, device_id)
           VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (uuid) 
           DO UPDATE SET 
             name = EXCLUDED.name,
             description = EXCLUDED.description
-        `, [uuid, wordSet.name, wordSet.description, wordSet.isCustom, new Date(wordSet.createdAt), deviceId]);
-        
+        `,
+          [
+            uuid,
+            wordSet.name,
+            wordSet.description,
+            wordSet.isCustom,
+            new Date(wordSet.createdAt),
+            deviceId
+          ]
+        );
+
         // Se ci sono carte, inseriscile
         if (wordSet.cards && wordSet.cards.length > 0) {
           // Prima elimina eventuali carte esistenti (in caso di aggiornamento)
-          await client.query('DELETE FROM taboo_cards WHERE set_uuid = $1', [uuid]);
-          
+          await client.query("DELETE FROM taboo_cards WHERE set_uuid = $1", [
+            uuid
+          ]);
+
           // Poi inserisci le nuove carte
           for (const card of wordSet.cards) {
-            await client.query(`
+            await client.query(
+              `
               INSERT INTO taboo_cards (set_uuid, main_word, taboo_words)
               VALUES ($1, $2, $3)
-            `, [uuid, card.mainWord, card.tabooWords]);
+            `,
+              [uuid, card.mainWord, card.tabooWords]
+            );
           }
         }
-        
-        await client.query('COMMIT');
-        
+
+        await client.query("COMMIT");
+
         res.statusCode = 200;
         return res.end(JSON.stringify(wordSet));
       } catch (error) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         throw error;
       } finally {
         client.release();
       }
     }
-    
+
     // GET /api/wordsets?id=XXX - Ottieni un set specifico
-    if (req.method === 'GET' && url.searchParams.get('id')) {
-      const setId = url.searchParams.get('id');
-      const checkPermissions = url.searchParams.get('permissions') === 'true';
-      
+    if (req.method === "GET" && url.searchParams.get("id")) {
+      const setId = url.searchParams.get("id");
+      const checkPermissions = url.searchParams.get("permissions") === "true";
+
       // Se richiediamo solo i permessi
       if (checkPermissions) {
         const client = await pool.connect();
-        
+
         try {
           const result = await client.query(
-            'SELECT device_id FROM word_sets WHERE uuid = $1',
+            "SELECT device_id FROM word_sets WHERE uuid = $1",
             [setId]
           );
-          
+
           if (result.rows.length === 0) {
             res.statusCode = 404;
-            return res.end(JSON.stringify({ error: 'Set not found' }));
+            return res.end(JSON.stringify({ error: "Set not found" }));
           }
-          
+
           const canDelete = result.rows[0].device_id === deviceId;
-          
+
           res.statusCode = 200;
           return res.end(JSON.stringify({ canDelete }));
         } finally {
           client.release();
         }
       }
-      
+
       // Altrimenti restituisci il set completo
       const client = await pool.connect();
-      
+
       try {
         const setResult = await client.query(
-          'SELECT * FROM word_sets WHERE uuid = $1',
+          "SELECT * FROM word_sets WHERE uuid = $1",
           [setId]
         );
-        
+
         if (setResult.rows.length === 0) {
           res.statusCode = 404;
-          return res.end(JSON.stringify({ error: 'Set not found' }));
+          return res.end(JSON.stringify({ error: "Set not found" }));
         }
-        
+
         const setRow = setResult.rows[0];
-        
+
         const cardsResult = await client.query(
-          'SELECT * FROM taboo_cards WHERE set_uuid = $1',
+          "SELECT * FROM taboo_cards WHERE set_uuid = $1",
           [setId]
         );
-        
-        const cards = cardsResult.rows.map((card) => ({
+
+        const cards = cardsResult.rows.map((card: any) => ({
           id: card.id.toString(),
           mainWord: card.main_word,
           tabooWords: card.taboo_words
         }));
-        
+
         const wordSet = {
           id: setRow.uuid,
           name: setRow.name,
@@ -341,54 +386,53 @@ async function handler(req, res) {
           cards,
           creatorDeviceId: setRow.device_id
         };
-        
+
         res.statusCode = 200;
         return res.end(JSON.stringify(wordSet));
       } finally {
         client.release();
       }
     }
-    
+
     // DELETE /api/wordsets?id=XXX - Elimina un set
-    if (req.method === 'DELETE' && url.searchParams.get('id')) {
-      const setId = url.searchParams.get('id');
+    if (req.method === "DELETE" && url.searchParams.get("id")) {
+      const setId = url.searchParams.get("id");
       const client = await pool.connect();
-      
+
       try {
         // Verifica che l'utente sia il proprietario
         const permResult = await client.query(
-          'SELECT device_id FROM word_sets WHERE uuid = $1',
+          "SELECT device_id FROM word_sets WHERE uuid = $1",
           [setId]
         );
-        
+
         if (permResult.rows.length === 0) {
           res.statusCode = 404;
-          return res.end(JSON.stringify({ error: 'Set not found' }));
+          return res.end(JSON.stringify({ error: "Set not found" }));
         }
-        
+
         if (permResult.rows[0].device_id !== deviceId) {
           res.statusCode = 403;
-          return res.end(JSON.stringify({ error: 'Permission denied' }));
+          return res.end(JSON.stringify({ error: "Permission denied" }));
         }
-        
+
         // Elimina il set (le carte associate verranno eliminate a cascata)
-        await client.query('DELETE FROM word_sets WHERE uuid = $1', [setId]);
-        
+        await client.query("DELETE FROM word_sets WHERE uuid = $1", [setId]);
+
         res.statusCode = 200;
         return res.end(JSON.stringify({ success: true }));
       } finally {
         client.release();
       }
     }
-    
+
     // Se arriviamo qui, endpoint non trovato
     res.statusCode = 404;
-    return res.end(JSON.stringify({ error: 'Method not supported' }));
-    
+    return res.end(JSON.stringify({ error: "Method not supported" }));
   } catch (error) {
-    console.error('Errore nella gestione della richiesta:', error);
+    console.error("Errore nella gestione della richiesta:", error);
     res.statusCode = 500;
-    return res.end(JSON.stringify({ error: 'Internal server error' }));
+    return res.end(JSON.stringify({ error: "Internal server error" }));
   } finally {
     pool.end();
   }
@@ -396,7 +440,7 @@ async function handler(req, res) {
 
 // Crea un server HTTP che risponde sulla porta 3001
 const PORT = process.env.PORT || 3001;
-const server = http.createServer(async (req, res) => {
+const server = http.createServer(async (req: any, res: any) => {
   // Imposta il tipo di contenuto a JSON per tutte le risposte
   res.setHeader('Content-Type', 'application/json');
   
@@ -412,4 +456,4 @@ const server = http.createServer(async (req, res) => {
 // Avvia il server
 server.listen(PORT, () => {
   console.log(`🚀 Server API avviato su http://localhost:${PORT}`);
-}); 
+});

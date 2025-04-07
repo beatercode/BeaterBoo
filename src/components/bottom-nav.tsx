@@ -11,9 +11,14 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({ currentPhase, onNavigate }) => {
   return (
     <Navbar
-      className="fixed bottom-0 left-0 right-0 h-16 border-t border-divider bg-background/70 backdrop-blur-md"
+      className="fixed bottom-0 left-0 right-0 h-16 border-t border-divider bg-background/70 backdrop-blur-md z-50"
       maxWidth="full"
       isBordered
+      style={{ 
+        bottom: '0px !important', 
+        top: 'auto !important', 
+        position: 'fixed !important' as any
+      }}
     >
       <NavbarContent className="max-w-md mx-auto flex justify-around w-full" justify="center">
         <NavbarItem>

@@ -1,37 +1,9 @@
 import { v4 as uuidv4 } from "uuid";
-import { TabooCard, WordSet } from "../types/game";
+import { WordSet } from "../types/game";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 // Inizializza fingerprintJS per l'identificazione del dispositivo
 const fpPromise = FingerprintJS.load();
-
-// Set di parole mockati per fallback in caso di errori API
-const mockWordSets: WordSet[] = [
-  {
-    id: "1",
-    name: "Set Base",
-    description: "Il set di parole classico del gioco Taboo",
-    cards: [
-      {
-        id: "1",
-        mainWord: "Calcio",
-        tabooWords: ["Pallone", "Goal", "Campo", "Squadra", "Giocatore"]
-      },
-      {
-        id: "2",
-        mainWord: "Pizza",
-        tabooWords: ["Formaggio", "Pomodoro", "Italia", "Forno", "Margherita"]
-      },
-      {
-        id: "3",
-        mainWord: "Venezia",
-        tabooWords: ["Canale", "Gondola", "Italia", "Acqua", "Carnevale"]
-      }
-    ],
-    isCustom: false,
-    createdAt: "2024-01-01"
-  }
-];
 
 // Ottenere l'ID del dispositivo in modo univoco
 async function getDeviceId(): Promise<string> {
@@ -57,24 +29,24 @@ async function apiCall<T>(
 
   try {
     let url;
-    
+
     // In ambiente build, usa l'URL di produzione
-    const baseUrl = import.meta.env.PROD ? 'https://beaterboo.vercel.app' : '';
-    
-    if (endpoint === 'wordsets') {
+    const baseUrl = import.meta.env.PROD ? "https://beaterboo.vercel.app" : "";
+
+    if (endpoint === "wordsets") {
       url = `${baseUrl}/api/wordsets`;
     } else if (endpoint.match(/wordsets\/(.+)\/permissions/)) {
-      const setId = endpoint.split('/')[1];
+      const setId = endpoint.split("/")[1];
       url = `${baseUrl}/api/wordsets?id=${setId}&permissions=true`;
     } else if (endpoint.match(/wordsets\/(.+)/)) {
-      const setId = endpoint.split('/')[1];
+      const setId = endpoint.split("/")[1];
       url = `${baseUrl}/api/wordsets?id=${setId}`;
     } else {
       url = `${baseUrl}/api/${endpoint}`;
     }
-    
+
     console.log(`Chiamata API a ${url}, metodo: ${method}`);
-    
+
     const response = await fetch(url, {
       method,
       headers: {
@@ -130,21 +102,24 @@ async function loadWordSets(): Promise<WordSet[]> {
   try {
     // Chiamata API per ottenere tutti i set di parole
     const sets = await apiCall<WordSet[]>("wordsets");
-    
+
     // Mostra gli ID dei set per debug
-    console.log("Set di parole caricati:", sets.map(set => ({
-      id: set.id,
-      name: set.name,
-      isCustom: set.isCustom,
-      creatorDeviceId: set.creatorDeviceId
-    })));
-    
+    console.log(
+      "Set di parole caricati:",
+      sets.map(set => ({
+        id: set.id,
+        name: set.name,
+        isCustom: set.isCustom,
+        creatorDeviceId: set.creatorDeviceId
+      }))
+    );
+
     return sets;
   } catch (error) {
     console.error("Errore nel caricamento dei set:", error);
     // In caso di errore, restituiamo i set mockati
     console.warn("Utilizzando set di parole mock come fallback");
-    return mockWordSets;
+    return [];
   }
 }
 
@@ -154,7 +129,9 @@ async function canDeleteWordSet(setId: string): Promise<boolean> {
     // Nel caso di un set appena creato in locale (che non ha ancora un ID numerico),
     // consideriamo l'utente come proprietario
     if (!setId.match(/^\d+$/)) {
-      console.log(`Set con ID non numerico (${setId}), l'utente è considerato proprietario`);
+      console.log(
+        `Set con ID non numerico (${setId}), l'utente è considerato proprietario`
+      );
       return true;
     }
 
@@ -165,14 +142,16 @@ async function canDeleteWordSet(setId: string): Promise<boolean> {
     return result.canDelete;
   } catch (error) {
     console.error("Errore nella verifica dei permessi:", error);
-    
+
     // In caso di errore, se siamo in locale, permettiamo l'eliminazione
     // Questo permette di eliminare i set quando non c'è connessione al backend
     if (!import.meta.env.PROD) {
-      console.warn("Permettendo l'eliminazione in modalità sviluppo nonostante l'errore");
+      console.warn(
+        "Permettendo l'eliminazione in modalità sviluppo nonostante l'errore"
+      );
       return true;
     }
-    
+
     // In caso di errore in produzione, non permettiamo l'eliminazione
     return false;
   }

@@ -7,12 +7,14 @@ import { WordSet } from '../types/game';
 interface MainMenuProps {
   onStartNewGame: () => void;
   onGenerateWordSet: () => void;
+  onWordSets: () => void;
   selectedWordSet?: WordSet;
 }
 
 export const MainMenu: React.FC<MainMenuProps> = ({ 
   onStartNewGame, 
   onGenerateWordSet,
+  onWordSets,
   selectedWordSet 
 }) => {
   return (
@@ -63,7 +65,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
 
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-radial from-primary-100/30 to-transparent" />
-        <div className="absolute top-0 left-0 right-0 h-[500px] bg-gradient-to-b from-primary-100/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-[500px] bg-gradient-to-b from-primary-100/20 to-transparent" />
       </div>
     </motion.div>
   );

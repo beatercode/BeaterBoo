@@ -37,6 +37,39 @@ export default function App() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
+  // Impostazione globale per impedire lo scrolling
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = `
+      html, body {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        overscroll-behavior: none;
+      }
+      
+      .allow-scroll {
+        overflow-y: auto;
+        height: calc(100vh - 4rem); /* Altezza totale meno la navbar */
+        padding-bottom: 1rem;
+      }
+
+      /* Forza la navbar in basso */
+      nav[class*="fixed"] {
+        top: auto !important;
+        bottom: 0 !important;
+        position: fixed !important;
+      }
+    `;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
   const {
     gameState,
     startGame,
@@ -237,14 +270,6 @@ export default function App() {
     setGamePhase('menu');
   };
 
-  const getExistingWords = React.useMemo(() => {
-    if (isAddingCardsToSet && targetWordSetId) {
-      const targetSet = wordSets.find(set => set.id === targetWordSetId);
-      return targetSet ? targetSet.cards.map(card => card.mainWord) : [];
-    }
-    return [];
-  }, [isAddingCardsToSet, targetWordSetId, wordSets]);
-
   // Carica i set di parole dal database all'avvio dell'app
   useEffect(() => {
     const fetchWordSets = async () => {
@@ -271,41 +296,12 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-24 relative overflow-hidden">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-50/10 to-secondary-50/10 backdrop-blur-3xl" />
-      </div>
-      
-      {/* Visualizza il messaggio di errore se presente */}
-      {errorMessage && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-danger-100 text-danger-700 px-4 py-2 rounded-lg shadow-lg">
-          <div className="flex items-center gap-2">
-            <Icon icon="lucide:alert-triangle" />
-            <span>{errorMessage}</span>
-            <button 
-              onClick={() => setErrorMessage(null)} 
-              className="ml-2 text-danger-700 hover:text-danger-900"
-            >
-              <Icon icon="lucide:x" />
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Visualizza il loader durante il caricamento */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-            <p className="text-primary font-medium">Caricamento in corso...</p>
-          </div>
-        </div>
-      )}
-
+    <div className="min-h-screen bg-gradient-to-br from-background to-background-100 text-foreground px-4 pt-4 pb-20">
       <AnimatePresence mode="wait">
         {gamePhase === 'menu' && (
           <MainMenu
             onStartNewGame={handleStartNewGame}
+            onWordSets={() => setGamePhase('wordSets')}
             onGenerateWordSet={handleGenerateWordSet}
             selectedWordSet={gameState.selectedWordSet}
           />
@@ -318,25 +314,23 @@ export default function App() {
           />
         )}
 
-        {gamePhase === 'wordSets' && (
-          <WordSets
-            wordSets={wordSets}
-            onSelectWordSet={handleSelectWordSet}
-            onAddCardsToSet={handleAddCardsToSet}
+        {gamePhase === 'wordSetGeneration' && (
+          <WordSetGenerator
+            onComplete={handleWordSetGenerated}
             onBack={() => setGamePhase('menu')}
-            onDeleteWordSet={handleDeleteWordSet}
           />
         )}
 
-        {gamePhase === 'wordSetGeneration' && (
-          <WordSetGenerator
-            onComplete={isAddingCardsToSet ? handleCardsAddedToSet : handleWordSetGenerated}
-            onBack={() => isAddingCardsToSet ? setGamePhase('wordSets') : setGamePhase('menu')}
-            existingWords={getExistingWords}
-            initialCardCount={isAddingCardsToSet && targetWordSetId 
-              ? wordSets.find(set => set.id === targetWordSetId)?.cards.length || 30  // Per i set esistenti
-              : 30} // Per i nuovi set
-          />
+        {gamePhase === 'wordSets' && (
+          <div className="allow-scroll">
+            <WordSets
+              wordSets={wordSets}
+              onSelectWordSet={handleSelectWordSet}
+              onBack={() => setGamePhase('menu')}
+              onAddCardsToSet={handleAddCardsToSet}
+              onDeleteWordSet={handleDeleteWordSet}
+            />
+          </div>
         )}
 
         {gamePhase === 'game' && (

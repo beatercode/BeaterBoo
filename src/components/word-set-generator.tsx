@@ -6,7 +6,8 @@ import { TabooCard } from '../types/game';
 import { generateTabooWords } from '../services/gemini';
 
 interface WordSetGeneratorProps {
-  onComplete: (cards: TabooCard[], setName: string) => void;
+  onComplete?: (cards: TabooCard[], setName: string) => void;
+  onWordSetGenerated?: (cards: TabooCard[], setName: string) => void;
   onBack?: () => void;
   existingWords?: string[] | (() => string[]);
   initialCardCount?: number;
@@ -14,6 +15,7 @@ interface WordSetGeneratorProps {
 
 export const WordSetGenerator: React.FC<WordSetGeneratorProps> = ({ 
   onComplete, 
+  onWordSetGenerated,
   onBack,
   existingWords = [],
   initialCardCount = 30
@@ -80,7 +82,12 @@ export const WordSetGenerator: React.FC<WordSetGeneratorProps> = ({
         setGeneratedCards(allCards);
       }
       
-      onComplete(allCards, setName);
+      // Supporto per entrambe le proprietà di callback
+      if (onWordSetGenerated) {
+        onWordSetGenerated(allCards, setName);
+      } else if (onComplete) {
+        onComplete(allCards, setName);
+      }
     } catch (error) {
       console.error('Errore nella generazione delle parole:', error);
       setIsGenerating(false);
