@@ -18,7 +18,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   if (!isPlaying) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-4 bg-content1 shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 p-4 bg-content1 shadow-lg" style={{ zIndex: 60 }}>
       <div className="flex justify-between gap-2 max-w-md mx-auto">
         <Button
           color="success"
